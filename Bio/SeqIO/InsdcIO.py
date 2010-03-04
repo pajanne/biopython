@@ -726,8 +726,15 @@ class EmblWriter(_InsdcWriter):
 
         data = self._get_seq_string(record) #Catches sequence being None
         seq_len = len(data)
-        # TODO - Length and base composition on SQ line?
-        handle.write("SQ   \n")
+        #Length and base composition on SQ line
+        #Sequence 3763317 BP; 772804 A; 1042979 C; 1057681 G; 776208 T; 113645 other;
+        a_content = record.seq.count('A')
+        c_content = record.seq.count('C')
+        g_content = record.seq.count('G')
+        t_content = record.seq.count('T')
+        other = len(record) - (a_content + c_content + g_content + t_content)
+        self.handle.write("SQ   Sequence %i BP; %i A; %i C; %i G; %i T; %i other;\n" \
+                           % (len(record), a_content, c_content, g_content, t_content, other))
         for line_number in range(0, seq_len // LETTERS_PER_LINE):
             handle.write("    ") #Just four, not five
             for block in range(BLOCKS_PER_LINE) :
@@ -795,14 +802,105 @@ class EmblWriter(_InsdcWriter):
             #Must be something like NucleotideAlphabet
             raise ValueError("Need a DNA or RNA alphabet")
 
-        #TODO - Full ID line
+        #Get the topology -- circular or linear
+        if 'topology' in record.annotations:
+            topology = record.annotations['topology']
+            if topology not in ['linear', 'circular']:
+                raise ValueError("Cannot have '%s' for topology in EMBL ID line, must be 'circular' or 'linear'" % topology)
+        else:
+            topology = 'linear' # default topology
+
+        #Get the taxonomy division
+        division = self._get_data_division(record)
+        
+        #Get Data class
+        data_class = self._get_data_class(record)
+
+        #Full ID line
+        #ID   <1>; SV <2>; <3>; <4>; <5>; <6>; <7> BP.
+        #1. Primary accession number
+        #2. Sequence version number
+        #3. Topology: 'circular' or 'linear'
+        #4. Molecule type (see note 1 below)
+        #5. Data class (see section 3.1)
+        #6. Taxonomic division (see section 3.2)
+        #7. Sequence length (see note 2 below)
         handle = self.handle
-        self._write_single_line("ID", "%s; %s; ; %s; ; ; %i BP." \
-                                % (accession, version, mol_type, len(record)))
+        self._write_single_line("ID", "%s; %s; %s; %s; %s; %s; %i BP." \
+                                % (accession, version, topology, mol_type, data_class, division, len(record)))
         handle.write("XX\n")
         self._write_single_line("AC", accession+";")
         handle.write("XX\n")
 
+    def _get_data_class(self, record):
+        #    Class          Definition
+        #    -----------    -----------------------------------------------------------
+        #    CON            Entry constructed from segment entry sequences; if unannotated,
+        #                   annotation may be drawn from segment entries 
+        #    PAT            Patent
+        #    EST            Expressed Sequence Tag
+        #    GSS            Genome Survey Sequence
+        #    HTC            High Thoughput CDNA sequencing
+        #    HTG            High Thoughput Genome sequencing
+        #    MGA            Mass Genome Annotation
+        #    WGS            Whole Genome Shotgun
+        #    TPA            Third Party Annotation
+        #    STS            Sequence Tagged Site
+        #    STD            Standard (all entries not classified as above)
+        try:
+            data_class = record.annotations["data_file_class"]
+        except KeyError:
+            data_class = "UNK"
+        if data_class in ["CON", "PAT", "EST", "GSS", "HTC", "HTG",
+                          "MGA", "WGS", "TPA", "STS", "STD"]:
+            pass
+        else:
+            data_class = "UNK"
+        assert len(data_class) == 3
+        return data_class
+
+    def _get_data_division(self, record):
+        try:
+            division = record.annotations["data_file_division"]
+        except KeyError:
+            division = "UNK"
+        if division in ["PHG", "ENV", "FUN", "HUM", "INV", "MAM", "VRT",
+                        "MUS", "PLN", "PRO", "ROD", "SYN", "TGN", "UNC",
+                        "VRL"]:
+            #Good, already EMBL style
+            #    Division                 Code
+            #    -----------------        ----
+            #    Bacteriophage            PHG - common
+            #    Environmental Sample     ENV - common
+            #    Fungal                   FUN - map to PLN (plants + fungal)
+            #    Human                    HUM - map to MAM
+            #    Invertebrate             INV - common
+            #    Other Mammal             MAM - common
+            #    Other Vertebrate         VRT - common
+            #    Mus musculus             MUS - map to ROD (rodent)
+            #    Plant                    PLN - common
+            #    Prokaryote               PRO - map to BCT (poor name)
+            #    Other Rodent             ROD - common
+            #    Synthetic                SYN - common
+            #    Transgenic               TGN - ??? map to SYN ???
+            #    Unclassified             UNC - map to UNK
+            #    Viral                    VRL - common
+            #
+            #(plus UNK for unknown)
+            pass
+        else:
+            #TODO: See if this is in GenBank style & convert
+            division = "UNK"
+        assert len(division)==3
+        return division
+
+    def _write_project(self, record):
+        #The PR (PRoject) line shows the International Nucleotide Sequence Database Collaboration (INSDC) 
+        #Project Identifier that has been assigned to the entry.
+        #PR   Project:17285;
+        project = record.annotations["project"]
+        self._write_single_line("PR", "Project:%s;" % project)
+        self.handle.write("XX\n")
 
     def _write_references(self, record):
         number = 0
@@ -820,6 +918,7 @@ class EmblWriter(_InsdcWriter):
                 self._write_single_line("RX", "PUBMED; %s." % ref.pubmed_id)
             if ref.authors:
                 #We store the AUTHORS data as a single string
+                #TODO - RA line ends with ';'
                 self._write_multi_line("RA", ref.authors)
             if ref.title:
                 #We store the title as a single string
@@ -856,6 +955,9 @@ class EmblWriter(_InsdcWriter):
         handle = self.handle
         self._write_the_first_lines(record)
 
+        if "project" in record.annotations:
+            self._write_project(record)
+
         #TODO - DT lines (date)
 
         descr = record.description
@@ -880,6 +982,7 @@ class EmblWriter(_InsdcWriter):
             self._write_comment(record)
 
         handle.write("FH   Key             Location/Qualifiers\n")
+        handle.write("FH\n")
         for feature in record.features:
             self._write_feature(feature) 
 
