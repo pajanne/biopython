@@ -775,7 +775,7 @@ class EmblWriter(_InsdcWriter):
                                                  record.id.rsplit(".", 1)[0],
                                                  just_first=True)
         else :
-            version = ""
+            version = "XXX"
             accession = self._get_annotation_str(record, "accession",
                                                  record.id,
                                                  just_first=True)
@@ -827,6 +827,9 @@ class EmblWriter(_InsdcWriter):
         #5. Data class (see section 3.1)
         #6. Taxonomic division (see section 3.2)
         #7. Sequence length (see note 2 below)
+        #All tokens that are non-mandatory can be represented by a universal placeholder "XXX", 
+        #so in the ID line in the new submission can look as follows:
+        #ID   XXX; XXX; linear; XXX; XXX; XXX; 500 BP.
         handle = self.handle
         self._write_single_line("ID", "%s; %s; %s; %s; %s; %s; %i BP." \
                                 % (accession, version, topology, mol_type, data_class, division, len(record)))
@@ -849,12 +852,14 @@ class EmblWriter(_InsdcWriter):
         #    TPA            Third Party Annotation
         #    STS            Sequence Tagged Site
         #    STD            Standard (all entries not classified as above)
+        #
+        #(plus UNK for unknown, and XXX for submiting) 
         try:
             data_class = record.annotations["data_file_class"]
         except KeyError:
             data_class = "UNK"
         if data_class in ["CON", "PAT", "EST", "GSS", "HTC", "HTG",
-                          "MGA", "WGS", "TPA", "STS", "STD"]:
+                          "MGA", "WGS", "TPA", "STS", "STD", "XXX"]:
             pass
         else:
             data_class = "UNK"
@@ -868,7 +873,7 @@ class EmblWriter(_InsdcWriter):
             division = "UNK"
         if division in ["PHG", "ENV", "FUN", "HUM", "INV", "MAM", "VRT",
                         "MUS", "PLN", "PRO", "ROD", "SYN", "TGN", "UNC",
-                        "VRL"]:
+                        "VRL", "XXX"]:
             #Good, already EMBL style
             #    Division                 Code
             #    -----------------        ----
@@ -888,7 +893,7 @@ class EmblWriter(_InsdcWriter):
             #    Unclassified             UNC - map to UNK
             #    Viral                    VRL - common
             #
-            #(plus UNK for unknown)
+            #(plus UNK for unknown, and XXX for submiting)
             pass
         else:
             #TODO: See if this is in GenBank style & convert
