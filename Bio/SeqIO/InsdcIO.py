@@ -956,8 +956,12 @@ class EmblWriter(_InsdcWriter):
         handle = self.handle
         self._write_the_first_lines(record)
 
-        if "project" in record.annotations:
-            self._write_project(record)
+        #PR line (0 or 1 lines only), project identifier
+        for xref in record.dbxrefs:
+            if xref.startswith("Project:"):
+                self._write_single_line("PR", xref+";")
+                handle.write("XX\n")
+                break
 
         #TODO - DT lines (date)
 
