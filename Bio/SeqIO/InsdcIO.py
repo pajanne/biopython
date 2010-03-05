@@ -896,14 +896,6 @@ class EmblWriter(_InsdcWriter):
         assert len(division)==3
         return division
 
-    def _write_project(self, record):
-        #The PR (PRoject) line shows the International Nucleotide Sequence Database Collaboration (INSDC) 
-        #Project Identifier that has been assigned to the entry.
-        #PR   Project:17285;
-        project = record.annotations["project"]
-        self._write_single_line("PR", "Project:%s;" % project)
-        self.handle.write("XX\n")
-
     def _write_references(self, record):
         number = 0
         for ref in record.annotations["references"]:
