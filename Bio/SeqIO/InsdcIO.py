@@ -405,7 +405,7 @@ class GenBankWriter(_InsdcWriter):
             #    Bacteriophage            PHG - common
             #    Environmental Sample     ENV - common
             #    Fungal                   FUN - map to PLN (plants + fungal)
-            #    Human                    HUM - map to MAM
+            #    Human                    HUM - map to PRI (primates)
             #    Invertebrate             INV - common
             #    Other Mammal             MAM - common
             #    Other Vertebrate         VRT - common
@@ -418,7 +418,7 @@ class GenBankWriter(_InsdcWriter):
             #    Unclassified             UNC - map to UNK
             #    Viral                    VRL - common
             embl_to_gbk = {"FUN":"PLN",
-                           "HUM":"MAM",
+                           "HUM":"PRI",
                            "MUS":"ROD",
                            "PRO":"BCT",
                            "UNC":"UNK",
@@ -852,17 +852,15 @@ class EmblWriter(_InsdcWriter):
         #    TPA            Third Party Annotation
         #    STS            Sequence Tagged Site
         #    STD            Standard (all entries not classified as above)
-        #
-        #(plus UNK for unknown, and XXX for submiting) 
         try:
             data_class = record.annotations["data_file_class"]
         except KeyError:
-            data_class = "UNK"
+            data_class = "STD"
         if data_class in ["CON", "PAT", "EST", "GSS", "HTC", "HTG",
-                          "MGA", "WGS", "TPA", "STS", "STD", "XXX"]:
+                          "MGA", "WGS", "TPA", "STS", "STD"]:
             pass
         else:
-            data_class = "UNK"
+            data_class = "STD"
         assert len(data_class) == 3
         return data_class
 
@@ -870,34 +868,42 @@ class EmblWriter(_InsdcWriter):
         try:
             division = record.annotations["data_file_division"]
         except KeyError:
-            division = "UNK"
+            division = "UNC"
         if division in ["PHG", "ENV", "FUN", "HUM", "INV", "MAM", "VRT",
                         "MUS", "PLN", "PRO", "ROD", "SYN", "TGN", "UNC",
-                        "VRL", "XXX"]:
+                        "VRL"]:
             #Good, already EMBL style
             #    Division                 Code
             #    -----------------        ----
-            #    Bacteriophage            PHG - common
-            #    Environmental Sample     ENV - common
-            #    Fungal                   FUN - map to PLN (plants + fungal)
-            #    Human                    HUM - map to MAM
-            #    Invertebrate             INV - common
-            #    Other Mammal             MAM - common
-            #    Other Vertebrate         VRT - common
-            #    Mus musculus             MUS - map to ROD (rodent)
-            #    Plant                    PLN - common
-            #    Prokaryote               PRO - map to BCT (poor name)
-            #    Other Rodent             ROD - common
-            #    Synthetic                SYN - common
-            #    Transgenic               TGN - ??? map to SYN ???
-            #    Unclassified             UNC - map to UNK
-            #    Viral                    VRL - common
-            #
-            #(plus UNK for unknown, and XXX for submiting)
+            #    Bacteriophage            PHG
+            #    Environmental Sample     ENV
+            #    Fungal                   FUN
+            #    Human                    HUM
+            #    Invertebrate             INV
+            #    Other Mammal             MAM
+            #    Other Vertebrate         VRT
+            #    Mus musculus             MUS
+            #    Plant                    PLN
+            #    Prokaryote               PRO
+            #    Other Rodent             ROD
+            #    Synthetic                SYN
+            #    Transgenic               TGN
+            #    Unclassified             UNC (i.e. unknown)
+            #    Viral                    VRL
             pass
         else:
-            #TODO: See if this is in GenBank style & convert
-            division = "UNK"
+            #See if this is in GenBank style & can be converted.
+            #Generally a problem as the GenBank groups are wider
+            #than those of EMBL. Note that GenBank use "BCT" for
+            #both bacteria and acherea thus this maps to EMBL's
+            #"PRO" nicely.
+            gbk_to_embl = {"BCT":"PRO",
+                           "UNK":"UNC",
+                           }
+            try:
+                division = gbk_to_embl[division]
+            except KeyError:
+                division = "UNC"
         assert len(division)==3
         return division
 
