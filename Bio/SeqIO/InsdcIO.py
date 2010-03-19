@@ -118,7 +118,7 @@ def _insdc_location_string_ignoring_strand_and_subfeatures(feature):
     and isinstance(feature.location.end, SeqFeature.ExactPosition):
         #Special case, 12^13 gets mapped to location 12:12
         #(a zero length slice, meaning the point between two letters)
-        return "%s%i^%i" % (ref, feature.location.end.position,
+        return "%s%i..%i" % (ref, feature.location.end.position+1,
                             feature.location.end.position+1)
     else:
         #Typical case, e.g. 12..15 gets mapped to 11:15
